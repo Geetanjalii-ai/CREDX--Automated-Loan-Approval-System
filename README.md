@@ -17,19 +17,13 @@
 
 - [Overview](#-overview)
 - [Key Architectural Highlights](#-key-architectural-highlights)
-- [System Architecture](#-system-architecture)
 - [Tech Stack](#-tech-stack)
 - [Microservices Breakdown](#-microservices-breakdown)
 - [Database Schema & Data Modeling](#-database-schema--data-modeling)
 - [API Reference](#-api-reference)
-- [Getting Started & Installation](#-getting-started--installation)
-  - [Prerequisites](#prerequisites)
-  - [Environment Variables](#environment-variables)
-  - [Running the Services](#running-the-services)
 - [End-to-End Execution Flow](#-end-to-end-execution-flow)
 - [Resilience & Engineering Highlights](#-resilience--engineering-highlights)
 - [Future Roadmap](#-future-roadmap)
-- [Contributing & License](#-contributing--license)
 
 ---
 
@@ -55,54 +49,6 @@ Traditional retail banking loan origination processes take days or weeks due to 
 6. **Distributed Idempotency & Concurrency Protection**: Client-generated `UUIDv4` tokens hashed via SHA-256 and locked via atomic Redis `SETNX` operations (`TTL 300s`) with an automatic PostgreSQL fail-open fallback to prevent duplicate loan origination.
 7. **Real-Time Push Notifications**: Integrated Socket.io push engine fanning out events across connected customer browser tabs to display live application status updates without polling.
 8. **Immutable Compliance Audit Ledger**: Write-Once Read-Many (WORM) audit architecture recording frozen JSON snapshots of rules, input applicant data, and individual criteria pass/fail traces.
-
----
-
-## 📐 System Architecture
-
-### High-Level Architecture Diagram
-
-```mermaid
-graph TD
-    subgraph Client Layer
-        Client[React 19 SPA / Vite Frontend]
-    end
-
-    subgraph Reverse Proxy & Gateway
-        Gateway[Nginx / Reverse Proxy & Rate Limiter]
-    end
-
-    subgraph Microservices Layer
-        UserService[User & KYC Service :5001<br/>• Auth & Demographic Profiling<br/>• Tesseract.js OCR Worker<br/>• Socket.io Push Engine]
-        LoanService[Loan Application Service :5002<br/>• Polymorphic Metadata Validation<br/>• Distributed Idempotency Lock]
-        DecisionService[Decision & Compliance Service :5003<br/>• Dynamic BRE Rules Engine<br/>• Anti-Tampering Forensic Scanner<br/>• Weighted Risk Scoring Engine]
-    end
-
-    subgraph Messaging & Event Streaming
-        RabbitMQ[RabbitMQ Broker<br/>• Queue: loan_applications_queue<br/>• Exchange: notifications_exchange]
-    end
-
-    subgraph Storage & Caching Layer
-        PostgreSQL[(Neon PostgreSQL<br/>• ACID Relational Store<br/>• JSONB Metadata<br/>• Immutable Audit Trail)]
-        Redis[(Upstash Redis<br/>• Rule Cache [TTL 1800s]<br/>• Idempotency Lock [TTL 300s]<br/>• Sliding-Window Rate Limiter)]
-        Backblaze[Backblaze B2 / S3<br/>• Private Identity Bucket<br/>• Presigned GET URLs [TTL 600s]]
-    end
-
-    Client -->|HTTPS REST / WSS| Gateway
-    Gateway -->|/api/v1/users & /kyc| UserService
-    Gateway -->|/api/v1/loans| LoanService
-    Gateway -->|/api/v1/admin| DecisionService
-
-    LoanService -->|Publish Loan Submitted| RabbitMQ
-    DecisionService -->|Consume Application| RabbitMQ
-    DecisionService -->|Publish Decision Event| RabbitMQ
-    RabbitMQ -->|Fanout Push Event| UserService
-    UserService -->|WebSocket Push| Client
-
-    UserService & LoanService & DecisionService <--> PostgreSQL
-    UserService & LoanService & DecisionService <--> Redis
-    UserService -->|Stream Multipart Buffers| Backblaze
-```
 
 ---
 
